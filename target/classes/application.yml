@@ -1,0 +1,69 @@
+# Spring Bootアプリケーション設定
+spring:
+  application:
+    name: spring-batch-demo
+  
+  # データソース設定
+  datasource:
+    url: jdbc:h2:mem:batchdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: 
+  
+  # H2コンソール設定
+  h2:
+    console:
+      enabled: true
+      path: /h2-console
+      settings:
+        web-allow-others: true
+  
+  # JPA設定
+  jpa:
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: true
+    properties:
+      hibernate:
+        format_sql: true
+    database-platform: org.hibernate.dialect.H2Dialect
+  
+  # Batch設定
+  batch:
+    job:
+      enabled: false  # Job自動開始を無効化
+    jdbc:
+      initialize-schema: always
+  
+  # Thymeleaf設定
+  thymeleaf:
+    cache: false
+    encoding: UTF-8
+    mode: HTML
+    prefix: classpath:/templates/
+    suffix: .html
+
+# サーバー設定
+server:
+  port: 8080
+  servlet:
+    context-path: /
+
+# ログ設定
+logging:
+  level:
+    com.example.springbatch: DEBUG
+    org.springframework.batch: INFO
+    org.springframework.jdbc: DEBUG
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
+
+# 管理エンドポイント設定
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,batch
+  endpoint:
+    health:
+      show-details: always

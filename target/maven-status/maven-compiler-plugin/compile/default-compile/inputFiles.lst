@@ -1,0 +1,8 @@
+/Users/guohaijiao/springbatch/src/main/java/com/example/springbatch/config/BatchConfig.java
+/Users/guohaijiao/springbatch/src/main/java/com/example/springbatch/repository/PersonRepository.java
+/Users/guohaijiao/springbatch/src/main/java/com/example/springbatch/controller/JobController.java
+/Users/guohaijiao/springbatch/src/main/java/com/example/springbatch/SpringBatchDemoApplication.java
+/Users/guohaijiao/springbatch/src/main/java/com/example/springbatch/model/Person.java
+/Users/guohaijiao/springbatch/src/main/java/com/example/springbatch/command/JobCommandLineRunner.java
+/Users/guohaijiao/springbatch/src/main/java/com/example/springbatch/config/AsyncConfig.java
+/Users/guohaijiao/springbatch/src/main/java/com/example/springbatch/service/JobService.java
