@@ -87,19 +87,36 @@ public class JobService {
      */
     public boolean stopJob(Long executionId) {
         try {
-            // 设置停止标志，用于停止异步任务
+            // まずJobが存在するかチェック
+            JobExecution jobExecution = jobExplorer.getJobExecution(executionId);
+            if (jobExecution == null) {
+                System.err.println("Job停止失敗: Job执行记录不存在 - 执行ID: " + executionId);
+                return false;
+            }
+            
+            // Jobが実行中かチェック
+            if (!jobExecution.getStatus().isRunning()) {
+                System.out.println("Job已经停止或完成 - 执行ID: " + executionId + ", 状态: " + jobExecution.getStatus());
+                return true; // 既に停止したJobは停止成功とみなす
+            }
+            
+            // 停止フラグを設定し、非同期タスクを停止
             jobStopManager.setStopFlag(executionId);
             
-            // 调用Spring Batch的停止方法
+            // Spring Batchの停止メソッドを呼び出し
             boolean stopped = jobOperator.stop(executionId);
             
-            System.out.println("Job停止请求处理完成 - 执行ID: " + executionId + ", 结果: " + stopped);
-            return stopped;
+            System.out.println("Job停止请求处理完成 - 执行ID: " + executionId + ", Spring Batch停止结果: " + stopped);
+            
+            // Spring Batchがfalseを返しても、停止フラグが設定されれば停止リクエスト成功とみなす
+            return true;
         } catch (Exception e) {
             System.err.println("Job停止失敗: " + e.getMessage());
-            // 即使Spring Batch停止失败，也要设置停止标志
+            e.printStackTrace();
+            // Spring Batchの停止が失敗しても、停止フラグを設定
             jobStopManager.setStopFlag(executionId);
-            return false;
+            // 停止フラグ設定後は停止リクエスト成功とみなす
+            return true;
         }
     }
 

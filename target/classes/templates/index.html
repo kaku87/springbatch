@@ -40,7 +40,7 @@
                 </h1>
                 <div class="text-center mb-3">
                     <p>このシステムでは、Spring BatchのJobを管理できます。</p>
-                    <p><strong>Job名:</strong> singleAsyncJob (単一非同期Step実行)</p>
+                    <p><strong>Job名:</strong> singleAsyncJob (タスク処理Job)</p>
                 </div>
             </div>
         </div>
@@ -53,7 +53,7 @@
                         <div class="d-flex justify-content-between">
                             <div>
                                 <h4 class="card-title" th:text="${totalCount}">0</h4>
-                                <p class="card-text">総レコード数</p>
+                                <p class="card-text">総タスク数</p>
                             </div>
                             <div class="align-self-center">
                                 <i class="fas fa-database fa-2x"></i>
@@ -68,7 +68,7 @@
                         <div class="d-flex justify-content-between">
                             <div>
                                 <h4 class="card-title" th:text="${processedCount}">0</h4>
-                                <p class="card-text">処理済み</p>
+                                <p class="card-text">処理済みタスク</p>
                             </div>
                             <div class="align-self-center">
                                 <i class="fas fa-check-circle fa-2x"></i>
@@ -83,7 +83,7 @@
                         <div class="d-flex justify-content-between">
                             <div>
                                 <h4 class="card-title" th:text="${unprocessedCount}">0</h4>
-                                <p class="card-text">未処理</p>
+                                <p class="card-text">未処理タスク</p>
                             </div>
                             <div class="align-self-center">
                                 <i class="fas fa-clock fa-2x"></i>
@@ -185,15 +185,25 @@
                                 <thead class="table-dark">
                                     <tr>
                                         <th>実行ID</th>
+                                        <th>バッチID</th>
+                                        <th>JobID</th>
                                         <th>ステータス</th>
                                         <th>開始時間</th>
                                         <th>終了時間</th>
                                         <th>終了コード</th>
                                         <th>実行時間</th>
+                                        <th>作成時間</th>
                                     </tr>
                                 </thead>
                                 <tbody>
                                     <tr th:each="job : ${jobExecutions}">
+                                        <td th:text="${job.id}"></td>
+                                        <td>
+                                            <span th:if="${batchExecutions != null}" 
+                                                  th:with="matchedBatch=${batchExecutions.?[jobId != null and jobId.equals(job.id)]}"
+                                                  th:text="${#lists.isEmpty(matchedBatch) ? '-' : matchedBatch[0].batchId}"></span>
+                                            <span th:if="${batchExecutions == null}">-</span>
+                                        </td>
                                         <td th:text="${job.id}"></td>
                                         <td>
                                             <span th:class="|badge status-badge ${
@@ -218,9 +228,15 @@
                                                   th:text="|${T(java.time.Duration).between(job.startTime, job.endTime).toSeconds()}s|"></span>
                                             <span th:if="${job.startTime == null or job.endTime == null}">-</span>
                                         </td>
+                                        <td>
+                                            <span th:if="${batchExecutions != null}" 
+                                                  th:with="matchedBatch=${batchExecutions.?[jobId != null and jobId.equals(job.id)]}"
+                                                  th:text="${#lists.isEmpty(matchedBatch) ? '-' : #temporals.format(matchedBatch[0].createdAt, 'yyyy-MM-dd HH:mm:ss')}"></span>
+                                            <span th:if="${batchExecutions == null}">-</span>
+                                        </td>
                                     </tr>
                                     <tr th:if="${#lists.isEmpty(jobExecutions)}">
-                                        <td colspan="6" class="text-center text-muted">Job実行記録がありません</td>
+                                        <td colspan="9" class="text-center text-muted">Job実行記録がありません</td>
                                     </tr>
                                 </tbody>
                             </table>

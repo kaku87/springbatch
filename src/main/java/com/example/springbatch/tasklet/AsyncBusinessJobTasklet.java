@@ -1,9 +1,9 @@
 package com.example.springbatch.tasklet;
 
 import com.example.springbatch.model.BatchExecution;
-import com.example.springbatch.model.Person;
+import com.example.springbatch.model.Task;
 import com.example.springbatch.repository.BatchExecutionRepository;
-import com.example.springbatch.repository.PersonRepository;
+import com.example.springbatch.repository.TaskRepository;
 import com.example.springbatch.service.JobStopManager;
 import org.springframework.batch.core.StepContribution;
 import org.springframework.batch.core.scope.context.ChunkContext;
@@ -27,32 +27,30 @@ public class AsyncBusinessJobTasklet implements Tasklet {
     private BatchExecutionRepository batchExecutionRepository;
     
     @Autowired
-    private PersonRepository personRepository;
+    private TaskRepository taskRepository;
     
     @Autowired
     private JobStopManager jobStopManager;
     
     @Override
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
-        // JobExecutionContextからバッチIDを取得
-        String batchId = (String) chunkContext.getStepContext().getStepExecution()
-                .getJobExecution().getExecutionContext().getString("batchId");
-        
-        Long batchExecutionId = (Long) chunkContext.getStepContext().getStepExecution()
-                .getJobExecution().getExecutionContext().getLong("batchExecutionId");
-        
-        System.out.println("ステップ3: 非同期業務Job実行開始 - バッチID: " + batchId);
-        
-        // バッチ実行記録を更新
-        Optional<BatchExecution> optionalBatchExecution = batchExecutionRepository.findById(batchExecutionId);
-        if (optionalBatchExecution.isPresent()) {
-            BatchExecution batchExecution = optionalBatchExecution.get();
-            batchExecution.setStatus("PROCESSING");
-            batchExecutionRepository.save(batchExecution);
-        }
-        
-        // 获取Job执行ID
+        // Job実行IDを取得
         Long jobExecutionId = chunkContext.getStepContext().getStepExecution().getJobExecutionId();
+        
+        // バッチIDを生成（Job実行IDをバッチIDとして使用）
+        String batchId = "BATCH_" + jobExecutionId + "_" + System.currentTimeMillis();
+        
+        System.out.println("単一非同期Job実行開始 - バッチID: " + batchId + ", Job実行ID: " + jobExecutionId);
+        
+        // バッチ実行記録を作成
+        BatchExecution batchExecution = new BatchExecution();
+        batchExecution.setBatchId(batchId);
+        batchExecution.setJobId(jobExecutionId);
+        batchExecution.setStatus("PROCESSING");
+        batchExecution.setStartTime(java.time.LocalDateTime.now());
+        batchExecution = batchExecutionRepository.save(batchExecution);
+        
+        Long batchExecutionId = batchExecution.getId();
         
         // 非同期で業務処理を実行
         CompletableFuture<Void> future = executeBusinessLogicAsync(batchId, batchExecutionId, jobExecutionId);
@@ -71,15 +69,15 @@ public class AsyncBusinessJobTasklet implements Tasklet {
     @Async("taskExecutor")
     public CompletableFuture<Void> executeBusinessLogicAsync(String batchId, Long batchExecutionId, Long jobExecutionId) {
         try {
-            // 注册当前线程到JobStopManager，以便支持强制中断
+            // 現在のスレッドをJobStopManagerに登録し、強制中断をサポート
             jobStopManager.registerJobThread(jobExecutionId, Thread.currentThread());
             
-            System.out.println("非同期業務処理開始 - バッチID: " + batchId + ", 线程: " + Thread.currentThread().getName());
+            System.out.println("非同期業務処理開始 - バッチID: " + batchId + ", スレッド: " + Thread.currentThread().getName());
             
-            // 未処理のPersonデータを取得
-            List<Person> unprocessedPersons = personRepository.findByProcessedFalse();
+            // 未処理のTaskデータを取得
+            List<Task> unprocessedTasks = taskRepository.findByProcessedFalse();
             
-            System.out.println("処理対象データ数: " + unprocessedPersons.size());
+            System.out.println("処理対象データ数: " + unprocessedTasks.size());
             
             // 長時間実行をシミュレート - 10分間の処理
             int totalIterations = 600; // 10分 = 600秒
@@ -87,35 +85,36 @@ public class AsyncBusinessJobTasklet implements Tasklet {
                 System.out.println("長時間処理実行中... " + (i + 1) + "/" + totalIterations + " - バッチID: " + batchId);
                 
                 // 1秒間の処理をシミュレート（中断可能）
-                // Thread.sleep()会自动响应Thread.interrupt()，无需额外检查
+                // Thread.sleep()はThread.interrupt()に自動応答するため、追加チェック不要
                 try {
                     Thread.sleep(1000);
                 } catch (InterruptedException e) {
                     System.out.println("Thread.sleep中に中断されました - バッチID: " + batchId);
-                    Thread.currentThread().interrupt(); // 中断状态重新设置
+                    Thread.currentThread().interrupt(); // 中断状態を再設定
                     throw e;
                 }
             }
             
             // 実際のデータ処理（短縮版）
-            for (Person person : unprocessedPersons) {
-                // 只在数据处理开始时检查一次中断状态
+            for (Task task : unprocessedTasks) {
+                // データ処理開始時に一度だけ中断状態をチェック
                 if (Thread.currentThread().isInterrupted()) {
                     System.out.println("データ処理が中断されました - バッチID: " + batchId);
                     throw new InterruptedException("データ処理が中断されました");
                 }
                 
-                // 処理ロジックをシミュレート：名前を大文字に変換
-                String firstName = person.getFirstName().toUpperCase();
-                String lastName = person.getLastName().toUpperCase();
+                // タスクステータスを更新（業務処理をシミュレート）
+                task.setStatus("PROCESSING");
+                task.setTaskName(task.getTaskName().toUpperCase());
                 
-                person.setFirstName(firstName);
-                person.setLastName(lastName);
-                person.setProcessed(true);
+                // 処理済みとしてマーク
+                task.setProcessed(true);
+                task.setStatus("COMPLETED");
                 
-                personRepository.save(person);
+                // データベースに保存
+                taskRepository.save(task);
                 
-                System.out.println("データ処理完了: " + person);
+                System.out.println("データ処理完了: " + task);
             }
             
             // バッチ実行記録を完了状態に更新
@@ -129,7 +128,7 @@ public class AsyncBusinessJobTasklet implements Tasklet {
             
             System.out.println("非同期業務処理完了 - バッチID: " + batchId);
             
-            // 清除停止标志
+            // 停止フラグをクリア
             jobStopManager.clearStopFlag(jobExecutionId);
             
         } catch (Exception e) {
@@ -144,7 +143,7 @@ public class AsyncBusinessJobTasklet implements Tasklet {
                 batchExecutionRepository.save(batchExecution);
             }
             
-            // 清除停止标志
+            // 停止フラグをクリア
             jobStopManager.clearStopFlag(jobExecutionId);
             
             throw new RuntimeException("非同期業務処理失敗", e);

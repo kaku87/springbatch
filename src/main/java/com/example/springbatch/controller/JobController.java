@@ -1,7 +1,9 @@
 package com.example.springbatch.controller;
 
-import com.example.springbatch.model.Person;
-import com.example.springbatch.repository.PersonRepository;
+import com.example.springbatch.model.Task;
+import com.example.springbatch.model.BatchExecution;
+import com.example.springbatch.repository.TaskRepository;
+import com.example.springbatch.repository.BatchExecutionRepository;
 import com.example.springbatch.service.JobService;
 import org.springframework.batch.core.JobExecution;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,7 +27,10 @@ public class JobController {
     private JobService jobService;
 
     @Autowired
-    private PersonRepository personRepository;
+    private TaskRepository taskRepository;
+    
+    @Autowired
+    private BatchExecutionRepository batchExecutionRepository;
 
     /**
      * Job管理ページを表示
@@ -40,10 +45,14 @@ public class JobController {
         List<JobExecution> runningJobs = jobService.getRunningJobExecutions();
         model.addAttribute("runningJobs", runningJobs);
         
+        // BatchExecution記録を取得
+        List<BatchExecution> batchExecutions = batchExecutionRepository.findAll();
+        model.addAttribute("batchExecutions", batchExecutions);
+        
         // データ統計を取得
-        long totalCount = personRepository.count();
-        long processedCount = personRepository.countProcessed();
-        long unprocessedCount = personRepository.countUnprocessed();
+        long totalCount = taskRepository.count();
+        long processedCount = taskRepository.countProcessed();
+        long unprocessedCount = taskRepository.countUnprocessed();
         
         model.addAttribute("totalCount", totalCount);
         model.addAttribute("processedCount", processedCount);
@@ -154,16 +163,16 @@ public class JobController {
         
         try {
             // 既存データをクリア
-            personRepository.deleteAll();
+            taskRepository.deleteAll();
             
             // テストデータを作成
             for (int i = 1; i <= 20; i++) {
-                Person person = new Person(
-                    "FirstName" + i,
-                    "LastName" + i,
-                    "user" + i + "@example.com"
+                Task task = new Task(
+                    "Task-" + i,
+                    "タスク" + i + "の説明",
+                    (i % 3) + 1  // 優先度1-3
                 );
-                personRepository.save(person);
+                taskRepository.save(task);
             }
             
             response.put("success", true);
