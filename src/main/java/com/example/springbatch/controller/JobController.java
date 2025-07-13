@@ -53,7 +53,7 @@ public class JobController {
     }
 
     /**
-     * 非同期でJobを開始
+     * 非同期でJobを開始（4ステップJob）
      */
     @PostMapping("/api/jobs/start")
     @ResponseBody
@@ -72,14 +72,48 @@ public class JobController {
             Long executionId = future.get();
             
             response.put("success", true);
-            response.put("message", "Job開始成功");
+            response.put("message", "4ステップJob開始成功");
             response.put("executionId", executionId);
             response.put("status", "STARTED");
+            response.put("jobType", "fourStepJob");
             
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             response.put("success", false);
             response.put("message", "Job開始失敗: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    /**
+     * 启动单个异步Step的Job
+     */
+    @PostMapping("/api/jobs/start-single-async")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> startSingleAsyncJob() {
+        Map<String, Object> response = new HashMap<>();
+        
+        try {
+            // 実行中のJobがあるかチェック
+            if (jobService.hasRunningJobs()) {
+                response.put("success", false);
+                response.put("message", "既にJobが実行中です。完了後に新しいJobを開始してください");
+                return ResponseEntity.badRequest().body(response);
+            }
+            
+            CompletableFuture<Long> future = jobService.startSingleAsyncJobAsync();
+            Long executionId = future.get();
+            
+            response.put("success", true);
+            response.put("message", "单个异步Step Job開始成功");
+            response.put("executionId", executionId);
+            response.put("status", "STARTED");
+            response.put("jobType", "singleAsyncJob");
+            
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "单个异步Job開始失敗: " + e.getMessage());
             return ResponseEntity.internalServerError().body(response);
         }
     }

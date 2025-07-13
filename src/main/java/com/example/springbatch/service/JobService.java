@@ -33,6 +33,9 @@ public class JobService {
     private Job fourStepJob;
     
     @Autowired
+    private Job singleAsyncJob;
+    
+    @Autowired
     private JobStopManager jobStopManager;
 
     /**
@@ -61,6 +64,35 @@ public class JobService {
             return CompletableFuture.completedFuture(jobExecution.getId());
         } catch (Exception e) {
             throw new RuntimeException("Job実行エラー", e);
+        }
+    }
+
+    /**
+     * 启动单个异步Step的Job
+     */
+    public Long startSingleAsyncJob() throws JobParametersInvalidException, JobExecutionAlreadyRunningException, JobRestartException, JobInstanceAlreadyCompleteException {
+        JobParameters jobParameters = new JobParametersBuilder()
+                .addLong("time", System.currentTimeMillis())
+                .toJobParameters();
+        
+        JobExecution jobExecution = jobLauncher.run(singleAsyncJob, jobParameters);
+        return jobExecution.getId();
+    }
+
+    /**
+     * 非同期で单个异步Step的Jobを開始
+     */
+    @Async
+    public CompletableFuture<Long> startSingleAsyncJobAsync() {
+        try {
+            JobParameters jobParameters = new JobParametersBuilder()
+                    .addLong("time", System.currentTimeMillis())
+                    .toJobParameters();
+            
+            JobExecution jobExecution = jobLauncher.run(singleAsyncJob, jobParameters);
+            return CompletableFuture.completedFuture(jobExecution.getId());
+        } catch (Exception e) {
+            throw new RuntimeException("单个异步Job実行エラー", e);
         }
     }
 
@@ -107,10 +139,16 @@ public class JobService {
     public List<JobExecution> getAllJobExecutions() {
         List<JobExecution> allExecutions = new ArrayList<>();
         
-        // 全てのJobインスタンスを取得
-        List<JobInstance> jobInstances = jobExplorer.getJobInstances("fourStepJob", 0, 100);
+        // fourStepJobのJobインスタンスを取得
+        List<JobInstance> fourStepJobInstances = jobExplorer.getJobInstances("fourStepJob", 0, 100);
+        for (JobInstance jobInstance : fourStepJobInstances) {
+            List<JobExecution> executions = jobExplorer.getJobExecutions(jobInstance);
+            allExecutions.addAll(executions);
+        }
         
-        for (JobInstance jobInstance : jobInstances) {
+        // singleAsyncJobのJobインスタンスを取得
+        List<JobInstance> singleAsyncJobInstances = jobExplorer.getJobInstances("singleAsyncJob", 0, 100);
+        for (JobInstance jobInstance : singleAsyncJobInstances) {
             List<JobExecution> executions = jobExplorer.getJobExecutions(jobInstance);
             allExecutions.addAll(executions);
         }
@@ -130,8 +168,17 @@ public class JobService {
      * 実行中のJob実行記録を取得
      */
     public List<JobExecution> getRunningJobExecutions() {
-        Set<JobExecution> runningExecutions = jobExplorer.findRunningJobExecutions("fourStepJob");
-        return new ArrayList<>(runningExecutions);
+        List<JobExecution> allRunningExecutions = new ArrayList<>();
+        
+        // fourStepJobの実行中Job
+        Set<JobExecution> fourStepRunningExecutions = jobExplorer.findRunningJobExecutions("fourStepJob");
+        allRunningExecutions.addAll(fourStepRunningExecutions);
+        
+        // singleAsyncJobの実行中Job
+        Set<JobExecution> singleAsyncRunningExecutions = jobExplorer.findRunningJobExecutions("singleAsyncJob");
+        allRunningExecutions.addAll(singleAsyncRunningExecutions);
+        
+        return allRunningExecutions;
     }
 
     /**

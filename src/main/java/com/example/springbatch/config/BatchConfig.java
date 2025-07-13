@@ -17,74 +17,52 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.transaction.PlatformTransactionManager;
 
 /**
- * Spring Batch設定クラス - 4ステップJob
+ * Spring Batch設定クラス - 单个异步Step Job
  */
 @Configuration
 public class BatchConfig {
 
     @Autowired
-    private GenerateBatchIdTasklet generateBatchIdTasklet;
-    
-    @Autowired
-    private LogStartTimeTasklet logStartTimeTasklet;
-    
-    @Autowired
     @Qualifier("asyncBusinessJobTasklet")
     private Tasklet asyncBusinessJobTasklet;
-    
-    @Autowired
-    private ReturnJobIdTasklet returnJobIdTasklet;
 
     /**
-     * ステップ1: バッチIDを生成するStep
+     * 单个异步业务处理Step
      */
     @Bean
-    public Step generateBatchIdStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
-        return new StepBuilder("generateBatchIdStep", jobRepository)
-                .tasklet(generateBatchIdTasklet, transactionManager)
-                .build();
-    }
-
-    /**
-     * ステップ2: 開始時間を記録するStep
-     */
-    @Bean
-    public Step logStartTimeStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
-        return new StepBuilder("logStartTimeStep", jobRepository)
-                .tasklet(logStartTimeTasklet, transactionManager)
-                .build();
-    }
-
-    /**
-     * ステップ3: 非同期で業務Jobを実行するStep
-     */
-    @Bean
-    public Step asyncBusinessJobStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
-        return new StepBuilder("asyncBusinessJobStep", jobRepository)
+    public Step singleAsyncStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
+        return new StepBuilder("singleAsyncStep", jobRepository)
                 .tasklet(asyncBusinessJobTasklet, transactionManager)
                 .build();
     }
 
     /**
-     * ステップ4: JobIDを返すStep
+     * 只包含一个异步Step的Job
      */
     @Bean
-    public Step returnJobIdStep(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
-        return new StepBuilder("returnJobIdStep", jobRepository)
-                .tasklet(returnJobIdTasklet, transactionManager)
+    public Job singleAsyncJob(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
+        return new JobBuilder("singleAsyncJob", jobRepository)
+                .start(singleAsyncStep(jobRepository, transactionManager))
                 .build();
     }
 
     /**
-     * 4ステップからなるメインJob
+     * 原有的4ステップからなるメインJob（保留用于对比）
      */
     @Bean
-    public Job fourStepJob(JobRepository jobRepository, PlatformTransactionManager transactionManager) {
+    public Job fourStepJob(JobRepository jobRepository, PlatformTransactionManager transactionManager,
+                          GenerateBatchIdTasklet generateBatchIdTasklet,
+                          LogStartTimeTasklet logStartTimeTasklet,
+                          ReturnJobIdTasklet returnJobIdTasklet) {
         return new JobBuilder("fourStepJob", jobRepository)
-                .start(generateBatchIdStep(jobRepository, transactionManager))
-                .next(logStartTimeStep(jobRepository, transactionManager))
-                .next(asyncBusinessJobStep(jobRepository, transactionManager))
-                .next(returnJobIdStep(jobRepository, transactionManager))
+                .start(new StepBuilder("generateBatchIdStep", jobRepository)
+                        .tasklet(generateBatchIdTasklet, transactionManager).build())
+                .next(new StepBuilder("logStartTimeStep", jobRepository)
+                        .tasklet(logStartTimeTasklet, transactionManager).build())
+                .next(new StepBuilder("asyncBusinessJobStep", jobRepository)
+                        .tasklet(asyncBusinessJobTasklet, transactionManager).build())
+                .next(new StepBuilder("returnJobIdStep", jobRepository)
+                        .tasklet(returnJobIdTasklet, transactionManager).build())
                 .build();
     }
 }
