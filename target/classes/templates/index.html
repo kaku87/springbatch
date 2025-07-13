@@ -38,6 +38,10 @@
                     <i class="fas fa-cogs text-primary"></i>
                     Spring Batch Job 管理センター
                 </h1>
+                <div class="text-center mb-3">
+                    <p>このシステムでは、Spring BatchのJobを管理できます。</p>
+                    <p><strong>Job名:</strong> singleAsyncJob (単一非同期Step実行)</p>
+                </div>
             </div>
         </div>
 
@@ -114,9 +118,9 @@
                     </div>
                     <div class="card-body">
                         <button id="startJobBtn" class="btn btn-success me-2">
-                            <i class="fas fa-play"></i> Job開始
+                            <i class="fas fa-bolt"></i> Job開始
                         </button>
-                        <button id="initDataBtn" class="btn btn-info me-2">
+                        <button id="initDataBtn" class="btn btn-warning me-2">
                             <i class="fas fa-database"></i> テストデータ初期化
                         </button>
                         <button onclick="location.reload()" class="btn btn-secondary">
@@ -262,7 +266,7 @@
             })
             .finally(() => {
                 btn.disabled = false;
-                btn.innerHTML = '<i class="fas fa-play"></i> Job開始';
+                btn.innerHTML = '<i class="fas fa-bolt"></i> Job開始';
             });
         });
 

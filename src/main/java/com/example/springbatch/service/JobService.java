@@ -30,13 +30,12 @@ public class JobService {
     private JobOperator jobOperator;
 
     @Autowired
-    private Job fourStepJob;
-    
-    @Autowired
     private Job singleAsyncJob;
     
     @Autowired
     private JobStopManager jobStopManager;
+
+
 
     /**
      * Jobを開始
@@ -46,7 +45,7 @@ public class JobService {
                 .addLong("time", System.currentTimeMillis())
                 .toJobParameters();
         
-        JobExecution jobExecution = jobLauncher.run(fourStepJob, jobParameters);
+        JobExecution jobExecution = jobLauncher.run(singleAsyncJob, jobParameters);
         return jobExecution.getId();
     }
 
@@ -60,39 +59,10 @@ public class JobService {
                     .addLong("time", System.currentTimeMillis())
                     .toJobParameters();
             
-            JobExecution jobExecution = jobLauncher.run(fourStepJob, jobParameters);
-            return CompletableFuture.completedFuture(jobExecution.getId());
-        } catch (Exception e) {
-            throw new RuntimeException("Job実行エラー", e);
-        }
-    }
-
-    /**
-     * 启动单个异步Step的Job
-     */
-    public Long startSingleAsyncJob() throws JobParametersInvalidException, JobExecutionAlreadyRunningException, JobRestartException, JobInstanceAlreadyCompleteException {
-        JobParameters jobParameters = new JobParametersBuilder()
-                .addLong("time", System.currentTimeMillis())
-                .toJobParameters();
-        
-        JobExecution jobExecution = jobLauncher.run(singleAsyncJob, jobParameters);
-        return jobExecution.getId();
-    }
-
-    /**
-     * 非同期で单个异步Step的Jobを開始
-     */
-    @Async
-    public CompletableFuture<Long> startSingleAsyncJobAsync() {
-        try {
-            JobParameters jobParameters = new JobParametersBuilder()
-                    .addLong("time", System.currentTimeMillis())
-                    .toJobParameters();
-            
             JobExecution jobExecution = jobLauncher.run(singleAsyncJob, jobParameters);
             return CompletableFuture.completedFuture(jobExecution.getId());
         } catch (Exception e) {
-            throw new RuntimeException("单个异步Job実行エラー", e);
+            throw new RuntimeException("Job実行エラー", e);
         }
     }
 
@@ -105,7 +75,7 @@ public class JobService {
                     .addLong("startTime", System.currentTimeMillis())
                     .toJobParameters();
             
-            return jobLauncher.run(fourStepJob, jobParameters);
+            return jobLauncher.run(singleAsyncJob, jobParameters);
         } catch (JobExecutionAlreadyRunningException | JobRestartException | 
                  JobInstanceAlreadyCompleteException | JobParametersInvalidException e) {
             throw new RuntimeException("Job開始失敗: " + e.getMessage(), e);
@@ -139,13 +109,6 @@ public class JobService {
     public List<JobExecution> getAllJobExecutions() {
         List<JobExecution> allExecutions = new ArrayList<>();
         
-        // fourStepJobのJobインスタンスを取得
-        List<JobInstance> fourStepJobInstances = jobExplorer.getJobInstances("fourStepJob", 0, 100);
-        for (JobInstance jobInstance : fourStepJobInstances) {
-            List<JobExecution> executions = jobExplorer.getJobExecutions(jobInstance);
-            allExecutions.addAll(executions);
-        }
-        
         // singleAsyncJobのJobインスタンスを取得
         List<JobInstance> singleAsyncJobInstances = jobExplorer.getJobInstances("singleAsyncJob", 0, 100);
         for (JobInstance jobInstance : singleAsyncJobInstances) {
@@ -169,10 +132,6 @@ public class JobService {
      */
     public List<JobExecution> getRunningJobExecutions() {
         List<JobExecution> allRunningExecutions = new ArrayList<>();
-        
-        // fourStepJobの実行中Job
-        Set<JobExecution> fourStepRunningExecutions = jobExplorer.findRunningJobExecutions("fourStepJob");
-        allRunningExecutions.addAll(fourStepRunningExecutions);
         
         // singleAsyncJobの実行中Job
         Set<JobExecution> singleAsyncRunningExecutions = jobExplorer.findRunningJobExecutions("singleAsyncJob");

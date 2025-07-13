@@ -1,9 +1,6 @@
 package com.example.springbatch.config;
 
-import com.example.springbatch.tasklet.GenerateBatchIdTasklet;
-import com.example.springbatch.tasklet.LogStartTimeTasklet;
 import com.example.springbatch.tasklet.AsyncBusinessJobTasklet;
-import com.example.springbatch.tasklet.ReturnJobIdTasklet;
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.springframework.batch.core.job.builder.JobBuilder;
@@ -46,23 +43,5 @@ public class BatchConfig {
                 .build();
     }
 
-    /**
-     * 原有的4ステップからなるメインJob（保留用于对比）
-     */
-    @Bean
-    public Job fourStepJob(JobRepository jobRepository, PlatformTransactionManager transactionManager,
-                          GenerateBatchIdTasklet generateBatchIdTasklet,
-                          LogStartTimeTasklet logStartTimeTasklet,
-                          ReturnJobIdTasklet returnJobIdTasklet) {
-        return new JobBuilder("fourStepJob", jobRepository)
-                .start(new StepBuilder("generateBatchIdStep", jobRepository)
-                        .tasklet(generateBatchIdTasklet, transactionManager).build())
-                .next(new StepBuilder("logStartTimeStep", jobRepository)
-                        .tasklet(logStartTimeTasklet, transactionManager).build())
-                .next(new StepBuilder("asyncBusinessJobStep", jobRepository)
-                        .tasklet(asyncBusinessJobTasklet, transactionManager).build())
-                .next(new StepBuilder("returnJobIdStep", jobRepository)
-                        .tasklet(returnJobIdTasklet, transactionManager).build())
-                .build();
-    }
+
 }
