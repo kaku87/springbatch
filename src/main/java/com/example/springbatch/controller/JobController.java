@@ -68,13 +68,13 @@ public class JobController {
                 return ResponseEntity.badRequest().body(response);
             }
             
-            CompletableFuture<JobExecution> future = jobService.startJobAsync();
-            JobExecution jobExecution = future.get();
+            CompletableFuture<Long> future = jobService.startJobAsync();
+            Long executionId = future.get();
             
             response.put("success", true);
             response.put("message", "Job開始成功");
-            response.put("executionId", jobExecution.getId());
-            response.put("status", jobExecution.getStatus().toString());
+            response.put("executionId", executionId);
+            response.put("status", "STARTED");
             
             return ResponseEntity.ok(response);
         } catch (Exception e) {

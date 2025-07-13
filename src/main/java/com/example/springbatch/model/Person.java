@@ -22,10 +22,15 @@ public class Person {
     @Column(name = "email")
     private String email;
     
+    @Column(name = "age")
+    private Integer age;
+    
     @Column(name = "processed")
     private Boolean processed = false;
     
-    public Person() {}
+    // デフォルトコンストラクタ
+    public Person() {
+    }
     
     public Person(String firstName, String lastName, String email) {
         this.firstName = firstName;
@@ -66,6 +71,14 @@ public class Person {
         this.email = email;
     }
     
+    public Integer getAge() {
+        return age;
+    }
+    
+    public void setAge(Integer age) {
+        this.age = age;
+    }
+    
     public Boolean getProcessed() {
         return processed;
     }
@@ -81,6 +94,7 @@ public class Person {
                 ", firstName='" + firstName + '\'' +
                 ", lastName='" + lastName + '\'' +
                 ", email='" + email + '\'' +
+                ", age=" + age +
                 ", processed=" + processed +
                 '}';
     }

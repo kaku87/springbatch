@@ -30,23 +30,37 @@ public class JobService {
     private JobOperator jobOperator;
 
     @Autowired
-    private Job processPersonJob;
+    private Job fourStepJob;
+    
+    @Autowired
+    private JobStopManager jobStopManager;
+
+    /**
+     * Jobを開始
+     */
+    public Long startJob() throws JobParametersInvalidException, JobExecutionAlreadyRunningException, JobRestartException, JobInstanceAlreadyCompleteException {
+        JobParameters jobParameters = new JobParametersBuilder()
+                .addLong("time", System.currentTimeMillis())
+                .toJobParameters();
+        
+        JobExecution jobExecution = jobLauncher.run(fourStepJob, jobParameters);
+        return jobExecution.getId();
+    }
 
     /**
      * 非同期でJobを開始
      */
     @Async
-    public CompletableFuture<JobExecution> startJobAsync() {
+    public CompletableFuture<Long> startJobAsync() {
         try {
             JobParameters jobParameters = new JobParametersBuilder()
-                    .addLong("startTime", System.currentTimeMillis())
+                    .addLong("time", System.currentTimeMillis())
                     .toJobParameters();
             
-            JobExecution jobExecution = jobLauncher.run(processPersonJob, jobParameters);
-            return CompletableFuture.completedFuture(jobExecution);
-        } catch (JobExecutionAlreadyRunningException | JobRestartException | 
-                 JobInstanceAlreadyCompleteException | JobParametersInvalidException e) {
-            throw new RuntimeException("Job開始失敗: " + e.getMessage(), e);
+            JobExecution jobExecution = jobLauncher.run(fourStepJob, jobParameters);
+            return CompletableFuture.completedFuture(jobExecution.getId());
+        } catch (Exception e) {
+            throw new RuntimeException("Job実行エラー", e);
         }
     }
 
@@ -59,7 +73,7 @@ public class JobService {
                     .addLong("startTime", System.currentTimeMillis())
                     .toJobParameters();
             
-            return jobLauncher.run(processPersonJob, jobParameters);
+            return jobLauncher.run(fourStepJob, jobParameters);
         } catch (JobExecutionAlreadyRunningException | JobRestartException | 
                  JobInstanceAlreadyCompleteException | JobParametersInvalidException e) {
             throw new RuntimeException("Job開始失敗: " + e.getMessage(), e);
@@ -71,9 +85,18 @@ public class JobService {
      */
     public boolean stopJob(Long executionId) {
         try {
-            return jobOperator.stop(executionId);
+            // 设置停止标志，用于停止异步任务
+            jobStopManager.setStopFlag(executionId);
+            
+            // 调用Spring Batch的停止方法
+            boolean stopped = jobOperator.stop(executionId);
+            
+            System.out.println("Job停止请求处理完成 - 执行ID: " + executionId + ", 结果: " + stopped);
+            return stopped;
         } catch (Exception e) {
             System.err.println("Job停止失敗: " + e.getMessage());
+            // 即使Spring Batch停止失败，也要设置停止标志
+            jobStopManager.setStopFlag(executionId);
             return false;
         }
     }
@@ -85,7 +108,7 @@ public class JobService {
         List<JobExecution> allExecutions = new ArrayList<>();
         
         // 全てのJobインスタンスを取得
-        List<JobInstance> jobInstances = jobExplorer.getJobInstances("processPersonJob", 0, 100);
+        List<JobInstance> jobInstances = jobExplorer.getJobInstances("fourStepJob", 0, 100);
         
         for (JobInstance jobInstance : jobInstances) {
             List<JobExecution> executions = jobExplorer.getJobExecutions(jobInstance);
@@ -107,7 +130,7 @@ public class JobService {
      * 実行中のJob実行記録を取得
      */
     public List<JobExecution> getRunningJobExecutions() {
-        Set<JobExecution> runningExecutions = jobExplorer.findRunningJobExecutions("processPersonJob");
+        Set<JobExecution> runningExecutions = jobExplorer.findRunningJobExecutions("fourStepJob");
         return new ArrayList<>(runningExecutions);
     }
 
