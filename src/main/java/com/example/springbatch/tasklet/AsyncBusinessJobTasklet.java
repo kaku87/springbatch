@@ -1,10 +1,13 @@
 package com.example.springbatch.tasklet;
 
+import com.example.springbatch.config.BatchProperties;
 import com.example.springbatch.model.BatchExecution;
 import com.example.springbatch.model.Task;
 import com.example.springbatch.repository.BatchExecutionRepository;
 import com.example.springbatch.repository.TaskRepository;
 import com.example.springbatch.service.JobStopManager;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.batch.core.StepContribution;
 import org.springframework.batch.core.scope.context.ChunkContext;
 import org.springframework.batch.core.step.tasklet.Tasklet;
@@ -23,6 +26,8 @@ import java.util.concurrent.CompletableFuture;
 @Component
 public class AsyncBusinessJobTasklet implements Tasklet {
     
+    private static final Logger logger = LoggerFactory.getLogger(AsyncBusinessJobTasklet.class);
+    
     @Autowired
     private BatchExecutionRepository batchExecutionRepository;
     
@@ -32,6 +37,9 @@ public class AsyncBusinessJobTasklet implements Tasklet {
     @Autowired
     private JobStopManager jobStopManager;
     
+    @Autowired
+    private BatchProperties batchProperties;
+    
     @Override
     public RepeatStatus execute(StepContribution contribution, ChunkContext chunkContext) throws Exception {
         // Job実行IDを取得
@@ -40,13 +48,13 @@ public class AsyncBusinessJobTasklet implements Tasklet {
         // バッチIDを生成（Job実行IDをバッチIDとして使用）
         String batchId = "BATCH_" + jobExecutionId + "_" + System.currentTimeMillis();
         
-        System.out.println("単一非同期Job実行開始 - バッチID: " + batchId + ", Job実行ID: " + jobExecutionId);
+        logger.info("単一非同期Job実行開始 - バッチID: {}, Job実行ID: {}", batchId, jobExecutionId);
         
         // バッチ実行記録を作成
         BatchExecution batchExecution = new BatchExecution();
         batchExecution.setBatchId(batchId);
         batchExecution.setJobId(jobExecutionId);
-        batchExecution.setStatus("PROCESSING");
+        batchExecution.setStatus(batchProperties.getStatus().getProcessing());
         batchExecution.setStartTime(java.time.LocalDateTime.now());
         batchExecution = batchExecutionRepository.save(batchExecution);
         
@@ -56,11 +64,26 @@ public class AsyncBusinessJobTasklet implements Tasklet {
         CompletableFuture<Void> future = executeBusinessLogicAsync(batchId, batchExecutionId, jobExecutionId);
         
         // 非同期処理の開始を確認（実際の完了は待たない）
-        System.out.println("非同期業務Job実行開始完了 - バッチID: " + batchId);
+        logger.info("非同期業務Job実行開始完了 - バッチID: {}", batchId);
         
         // 注意: CompletableFutureは序列化できないため、JobExecutionContextには保存しない
         
         return RepeatStatus.FINISHED;
+    }
+    
+    /**
+     * バッチ実行記録のステータスを更新する
+     * @param batchExecutionId バッチ実行ID
+     * @param status ステータス
+     */
+    private void updateBatchExecutionStatus(Long batchExecutionId, String status) {
+        Optional<BatchExecution> optionalBatchExecution = batchExecutionRepository.findById(batchExecutionId);
+        if (optionalBatchExecution.isPresent()) {
+            BatchExecution batchExecution = optionalBatchExecution.get();
+            batchExecution.setStatus(status);
+            batchExecution.setEndTime(java.time.LocalDateTime.now());
+            batchExecutionRepository.save(batchExecution);
+        }
     }
     
     /**
@@ -72,81 +95,49 @@ public class AsyncBusinessJobTasklet implements Tasklet {
             // 現在のスレッドをJobStopManagerに登録し、強制中断をサポート
             jobStopManager.registerJobThread(jobExecutionId, Thread.currentThread());
             
-            System.out.println("非同期業務処理開始 - バッチID: " + batchId + ", スレッド: " + Thread.currentThread().getName());
+            logger.info("非同期業務処理開始 - バッチID: {}, スレッド: {}", batchId, Thread.currentThread().getName());
             
             // 未処理のTaskデータを取得
             List<Task> unprocessedTasks = taskRepository.findByProcessedFalse();
             
-            System.out.println("処理対象データ数: " + unprocessedTasks.size());
+            logger.info("処理対象データ数: {}", unprocessedTasks.size());
             
-            // 長時間実行をシミュレート - 10分間の処理
-            int totalIterations = 600; // 10分 = 600秒
+            // 長時間実行をシミュレート - 設定可能な時間での処理
+            int totalIterations = batchProperties.getSimulationDurationSeconds();
             for (int i = 0; i < totalIterations; i++) {
-                System.out.println("長時間処理実行中... " + (i + 1) + "/" + totalIterations + " - バッチID: " + batchId);
+                logger.debug("長時間処理実行中... {}/{} - バッチID: {}", (i + 1), totalIterations, batchId);
                 
                 // 1秒間の処理をシミュレート（中断可能）
                 // Thread.sleep()はThread.interrupt()に自動応答するため、追加チェック不要
                 try {
                     Thread.sleep(1000);
                 } catch (InterruptedException e) {
-                    System.out.println("Thread.sleep中に中断されました - バッチID: " + batchId);
+                    logger.info("Thread.sleep中に中断されました - バッチID: {}", batchId);
                     Thread.currentThread().interrupt(); // 中断状態を再設定
                     throw e;
                 }
             }
             
-            // 実際のデータ処理（短縮版）
+            // 全てのTaskを処理済みに更新
             for (Task task : unprocessedTasks) {
-                // データ処理開始時に一度だけ中断状態をチェック
-                if (Thread.currentThread().isInterrupted()) {
-                    System.out.println("データ処理が中断されました - バッチID: " + batchId);
-                    throw new InterruptedException("データ処理が中断されました");
-                }
-                
-                // タスクステータスを更新（業務処理をシミュレート）
-                task.setStatus("PROCESSING");
-                task.setTaskName(task.getTaskName().toUpperCase());
-                
-                // 処理済みとしてマーク
                 task.setProcessed(true);
-                task.setStatus("COMPLETED");
-                
-                // データベースに保存
-                taskRepository.save(task);
-                
-                System.out.println("データ処理完了: " + task);
+                task.setProcessedAt(java.time.LocalDateTime.now());
             }
+            taskRepository.saveAll(unprocessedTasks);
             
-            // バッチ実行記録を完了状態に更新
-            Optional<BatchExecution> optionalBatchExecution = batchExecutionRepository.findById(batchExecutionId);
-            if (optionalBatchExecution.isPresent()) {
-                BatchExecution batchExecution = optionalBatchExecution.get();
-                batchExecution.setStatus("COMPLETED");
-                batchExecution.setEndTime(java.time.LocalDateTime.now());
-                batchExecutionRepository.save(batchExecution);
-            }
+            logger.info("非同期業務処理完了 - バッチID: {}", batchId);
             
-            System.out.println("非同期業務処理完了 - バッチID: " + batchId);
-            
-            // 停止フラグをクリア
-            jobStopManager.clearStopFlag(jobExecutionId);
+            // バッチ実行記録のステータスを更新
+            updateBatchExecutionStatus(batchExecutionId, batchProperties.getStatus().getCompleted());
             
         } catch (Exception e) {
-            System.err.println("非同期業務処理エラー - バッチID: " + batchId + ", エラー: " + e.getMessage());
+            logger.error("非同期業務処理でエラーが発生しました - バッチID: {}, エラー: {}", batchId, e.getMessage(), e);
             
-            // エラー時にバッチ実行記録を更新
-            Optional<BatchExecution> optionalBatchExecution = batchExecutionRepository.findById(batchExecutionId);
-            if (optionalBatchExecution.isPresent()) {
-                BatchExecution batchExecution = optionalBatchExecution.get();
-                batchExecution.setStatus("FAILED");
-                batchExecution.setEndTime(java.time.LocalDateTime.now());
-                batchExecutionRepository.save(batchExecution);
-            }
-            
-            // 停止フラグをクリア
+            // バッチ実行記録を失敗状態に更新
+            updateBatchExecutionStatus(batchExecutionId, batchProperties.getStatus().getFailed());
+        } finally {
+            // 停止フラグをクリア（必ず実行される）
             jobStopManager.clearStopFlag(jobExecutionId);
-            
-            throw new RuntimeException("非同期業務処理失敗", e);
         }
         
         return CompletableFuture.completedFuture(null);

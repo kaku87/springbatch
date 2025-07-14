@@ -67,3 +67,14 @@ management:
   endpoint:
     health:
       show-details: always
+
+# アプリケーション固有設定
+app:
+  batch:
+    # 業務処理シミュレーション時間（秒）
+    simulation-duration-seconds: 600
+    # バッチ処理ステータス
+    status:
+      processing: "PROCESSING"
+      completed: "COMPLETED"
+      failed: "FAILED"
