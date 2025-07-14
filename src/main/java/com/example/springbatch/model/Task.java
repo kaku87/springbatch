@@ -1,6 +1,7 @@
 package com.example.springbatch.model;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 
 /**
  * タスクエンティティクラス
@@ -27,6 +28,9 @@ public class Task {
     
     @Column(name = "processed")
     private Boolean processed = false;
+    
+    @Column(name = "processed_at")
+    private LocalDateTime processedAt;
     
     // デフォルトコンストラクタ
     public Task() {
@@ -88,6 +92,14 @@ public class Task {
         this.processed = processed;
     }
     
+    public LocalDateTime getProcessedAt() {
+        return processedAt;
+    }
+    
+    public void setProcessedAt(LocalDateTime processedAt) {
+        this.processedAt = processedAt;
+    }
+    
     @Override
     public String toString() {
         return "Task{" +
@@ -97,6 +109,7 @@ public class Task {
                 ", priority=" + priority +
                 ", status='" + status + '\'' +
                 ", processed=" + processed +
+                ", processedAt=" + processedAt +
                 '}';
     }
 }
