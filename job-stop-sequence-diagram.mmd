@@ -1,0 +1,77 @@
+```mermaid
+sequenceDiagram
+    participant Client as Webクライアント
+    participant Controller as JobController
+    participant Service as JobService
+    participant Explorer as JobExplorer
+    participant Operator as JobOperator
+    participant StopManager as JobStopManager
+    participant Tasklet as AsyncBusinessJobTasklet
+    participant Thread as Job実行スレッド
+
+    Note over Client,Thread: Spring Batch Job停止フロー
+    
+    Client->>Controller: POST /api/jobs/{executionId}/stop
+    Note right of Client: 停止リクエスト送信
+    
+    Controller->>Service: stopJob(executionId)
+    Note right of Controller: 停止リクエスト転送
+    
+    Service->>Explorer: getJobExecution(executionId)
+    Note right of Service: Job実行状態照会
+    
+    Explorer-->>Service: JobExecutionオブジェクト
+    Note left of Explorer: 実行情報返却
+    
+    alt Job実行中
+        Service->>Operator: stop(executionId)
+        Note right of Service: Spring Batch標準停止
+        
+        Service->>StopManager: setStopFlag(executionId)
+        Note right of Service: カスタム停止フラグ設定
+        
+        StopManager->>Thread: interrupt()
+        Note right of StopManager: Job実行スレッド中断
+        
+        Thread-->>Tasklet: InterruptedException
+        Note left of Thread: スレッド中断シグナル
+        
+        loop ビジネス処理ループ
+            Tasklet->>StopManager: shouldStop(executionId)
+            Note right of Tasklet: 停止フラグチェック
+            
+            alt 停止フラグがtrue
+                StopManager-->>Tasklet: true
+                Note left of StopManager: 停止シグナル返却
+                
+                Tasklet->>Tasklet: 処理ループ終了
+                Note right of Tasklet: 優雅な停止処理
+                break ビジネス処理停止
+            else 処理継続
+                StopManager-->>Tasklet: false
+                Note left of StopManager: 実行継続
+                
+                Tasklet->>Tasklet: ビジネスロジック実行
+                Note right of Tasklet: ビジネスデータ処理
+            end
+        end
+        
+        Tasklet->>StopManager: clearStopFlag(executionId)
+        Note right of Tasklet: 停止フラグとスレッド参照クリア
+        
+        Service-->>Controller: true
+        Note left of Service: 停止成功
+        
+        Controller-->>Client: {"success": true, "message": "Job停止成功"}
+        Note left of Controller: 成功レスポンス返却
+        
+    else Job未実行
+        Service-->>Controller: false
+        Note left of Service: 停止失敗
+        
+        Controller-->>Client: {"success": false, "message": "Job未実行"}
+        Note left of Controller: 失敗レスポンス返却
+    end
+    
+    Note over Client,Thread: 停止フロー完了
+```
