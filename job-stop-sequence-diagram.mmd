@@ -46,7 +46,7 @@ sequenceDiagram
                 
                 Tasklet->>Tasklet: 処理ループ終了
                 Note right of Tasklet: 優雅な停止処理
-                break ビジネス処理停止
+                Note over Tasklet: ビジネス処理停止
             else 処理継続
                 StopManager-->>Tasklet: false
                 Note left of StopManager: 実行継続
