@@ -1,0 +1,192 @@
+classDiagram
+    %% 应用启动类
+    class SpringBatchDemoApplication {
+        +main(String[] args)
+    }
+
+    %% 配置类
+    class BatchConfig {
+        -JobRepository jobRepository
+        -PlatformTransactionManager transactionManager
+        -DataSource dataSource
+        -BatchProperties batchProperties
+        +asyncBusinessJob() Job
+        +asyncBusinessJobStep() Step
+        +asyncBusinessJobTasklet() AsyncBusinessJobTasklet
+    }
+
+    class AsyncConfig {
+        +taskExecutor() Executor
+    }
+
+    class BatchProperties {
+        -int simulationDurationSeconds
+        -Status status
+        +getSimulationDurationSeconds() int
+        +getStatus() Status
+    }
+
+    class Status {
+        -String processing
+        -String completed
+        -String failed
+        +getProcessing() String
+        +getCompleted() String
+        +getFailed() String
+    }
+
+    %% 模型类
+    class Task {
+        -Long id
+        -String name
+        -String description
+        -boolean processed
+        -LocalDateTime createdAt
+        -LocalDateTime processedAt
+        +getId() Long
+        +getName() String
+        +getDescription() String
+        +isProcessed() boolean
+        +getCreatedAt() LocalDateTime
+        +getProcessedAt() LocalDateTime
+        +setProcessed(boolean processed)
+        +setProcessedAt(LocalDateTime processedAt)
+    }
+
+    class BatchExecution {
+        -Long id
+        -String batchId
+        -Long jobId
+        -String status
+        -LocalDateTime startTime
+        -LocalDateTime endTime
+        +getId() Long
+        +getBatchId() String
+        +getJobId() Long
+        +getStatus() String
+        +getStartTime() LocalDateTime
+        +getEndTime() LocalDateTime
+        +setBatchId(String batchId)
+        +setJobId(Long jobId)
+        +setStatus(String status)
+        +setStartTime(LocalDateTime startTime)
+        +setEndTime(LocalDateTime endTime)
+    }
+
+    %% 仓库接口
+    class TaskRepository {
+        <<interface>>
+        +findByProcessedFalse() List~Task~
+    }
+
+    class BatchExecutionRepository {
+        <<interface>>
+        +findByBatchId(String batchId) Optional~BatchExecution~
+        +findByJobId(Long jobId) Optional~BatchExecution~
+        +findByStatus(String status) List~BatchExecution~
+    }
+
+    %% 控制器
+    class JobController {
+        -JobService jobService
+        +startJob() ResponseEntity~String~
+        +stopJob() ResponseEntity~String~
+        +getJobStatus() ResponseEntity~String~
+    }
+
+    %% 服务类
+    class JobService {
+        -JobLauncher jobLauncher
+        -Job asyncBusinessJob
+        -JobExplorer jobExplorer
+        -JobStopManager jobStopManager
+        +startAsyncBusinessJob() String
+        +stopJob() String
+        +getJobStatus() String
+        -isJobRunning() boolean
+        -getRunningJobExecution() JobExecution
+    }
+
+    class JobStopManager {
+        -Map~Long, Thread~ jobThreadMap
+        -Map~Long, Boolean~ stopFlags
+        +registerJobThread(Long jobExecutionId, Thread thread)
+        +requestStop(Long jobExecutionId)
+        +isStopRequested(Long jobExecutionId) boolean
+        +clearStopFlag(Long jobExecutionId)
+        +forceStopJob(Long jobExecutionId)
+    }
+
+    %% 任务类
+    class AsyncBusinessJobTasklet {
+        -BatchExecutionRepository batchExecutionRepository
+        -TaskRepository taskRepository
+        -JobStopManager jobStopManager
+        -BatchProperties batchProperties
+        +execute(StepContribution contribution, ChunkContext chunkContext) RepeatStatus
+        +executeBusinessLogicAsync(String batchId, Long batchExecutionId, Long jobExecutionId) CompletableFuture~Void~
+        -updateBatchExecutionStatus(Long batchExecutionId, String status)
+    }
+
+    %% 命令行运行器
+    class JobCommandLineRunner {
+        -JobService jobService
+        +run(String... args)
+    }
+
+    %% Spring框架接口
+    class JpaRepository {
+        <<interface>>
+    }
+
+    class Tasklet {
+        <<interface>>
+        +execute(StepContribution contribution, ChunkContext chunkContext) RepeatStatus
+    }
+
+    class CommandLineRunner {
+        <<interface>>
+        +run(String... args)
+    }
+
+    %% 关系定义
+    SpringBatchDemoApplication --> JobCommandLineRunner : uses
+    
+    BatchConfig --> AsyncBusinessJobTasklet : creates
+    BatchConfig --> BatchProperties : uses
+    
+    BatchProperties --> Status : contains
+    
+    TaskRepository --|> JpaRepository : extends
+    BatchExecutionRepository --|> JpaRepository : extends
+    
+    TaskRepository --> Task : manages
+    BatchExecutionRepository --> BatchExecution : manages
+    
+    JobController --> JobService : uses
+    
+    JobService --> JobStopManager : uses
+    
+    AsyncBusinessJobTasklet --|> Tasklet : implements
+    AsyncBusinessJobTasklet --> BatchExecutionRepository : uses
+    AsyncBusinessJobTasklet --> TaskRepository : uses
+    AsyncBusinessJobTasklet --> JobStopManager : uses
+    AsyncBusinessJobTasklet --> BatchProperties : uses
+    
+    JobCommandLineRunner --|> CommandLineRunner : implements
+    JobCommandLineRunner --> JobService : uses
+
+    %% 注解说明
+    note for SpringBatchDemoApplication "@SpringBootApplication\n@EnableBatchProcessing"
+    note for BatchConfig "@Configuration\n@EnableBatchProcessing"
+    note for AsyncConfig "@Configuration\n@EnableAsync"
+    note for BatchProperties "@ConfigurationProperties"
+    note for Task "@Entity\n@Table"
+    note for BatchExecution "@Entity\n@Table"
+    note for TaskRepository "@Repository"
+    note for BatchExecutionRepository "@Repository"
+    note for JobController "@RestController\n@RequestMapping"
+    note for JobService "@Service"
+    note for JobStopManager "@Component"
+    note for AsyncBusinessJobTasklet "@Component"
+    note for JobCommandLineRunner "@Component"
