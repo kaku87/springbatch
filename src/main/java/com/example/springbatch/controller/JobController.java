@@ -95,6 +95,42 @@ public class JobController {
     }
 
     /**
+     * 指定したJobを開始
+     */
+    @PostMapping("/api/jobs/{jobName}/start")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> startJobByName(@PathVariable String jobName) {
+        Map<String, Object> response = new HashMap<>();
+
+        try {
+            if (jobService.hasRunningJobs(jobName)) {
+                response.put("success", false);
+                response.put("message", "指定したJobが既に実行中です: " + jobName);
+                return ResponseEntity.badRequest().body(response);
+            }
+
+            CompletableFuture<Long> future = jobService.startJobAsync(jobName);
+            Long executionId = future.get();
+
+            response.put("success", true);
+            response.put("message", "Job開始成功: " + jobName);
+            response.put("executionId", executionId);
+            response.put("status", "STARTED");
+            response.put("jobType", jobName);
+
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
+        } catch (Exception e) {
+            response.put("success", false);
+            response.put("message", "Job開始失敗: " + e.getMessage());
+            return ResponseEntity.internalServerError().body(response);
+        }
+    }
+
+    /**
      * Jobを停止
      */
     @PostMapping("/api/jobs/{executionId}/stop")

@@ -1,0 +1,81 @@
+package com.example.springbatch.config;
+
+import org.springframework.batch.core.Job;
+import org.springframework.batch.core.Step;
+import org.springframework.batch.core.job.builder.JobBuilder;
+import org.springframework.batch.core.repository.JobRepository;
+import org.springframework.batch.core.step.builder.StepBuilder;
+import org.springframework.batch.core.step.tasklet.Tasklet;
+import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.support.GenericApplicationContext;
+import org.springframework.transaction.PlatformTransactionManager;
+
+/**
+ * 単一Taskletで構成されたJobを簡単に登録するためのテンプレート。
+ * <p>
+ * サブクラスは {@link #jobName()} と {@link #taskletClass()} を実装するだけで、
+ * Job / Step bean が自動的に登録される。
+ */
+public abstract class AbstractSingleTaskletJobConfiguration implements InitializingBean {
+
+    @Autowired
+    private GenericApplicationContext applicationContext;
+
+    @Autowired
+    private JobRepository jobRepository;
+
+    @Autowired
+    private PlatformTransactionManager transactionManager;
+
+    @Override
+    public void afterPropertiesSet() {
+        registerJobDefinition();
+    }
+
+    protected abstract String jobName();
+
+    protected String stepName() {
+        return jobName() + "Step";
+    }
+
+    protected abstract Class<? extends Tasklet> taskletClass();
+
+    protected Tasklet resolveTasklet() {
+        return applicationContext.getBean(taskletClass());
+    }
+
+    private void registerJobDefinition() {
+        String jobName = jobName();
+        String stepName = stepName();
+
+        if (!applicationContext.containsBean(stepName)) {
+            applicationContext.registerBean(stepName, Step.class,
+                    () -> buildTaskletStep(stepName, resolveTasklet(), jobRepository, transactionManager));
+        }
+
+        if (!applicationContext.containsBean(jobName)) {
+            applicationContext.registerBean(jobName, Job.class,
+                    () -> buildSimpleJob(jobName,
+                            applicationContext.getBean(stepName, Step.class),
+                            jobRepository));
+        }
+    }
+
+    protected Step buildTaskletStep(String stepName,
+                                    Tasklet tasklet,
+                                    JobRepository jobRepository,
+                                    PlatformTransactionManager transactionManager) {
+        return new StepBuilder(stepName, jobRepository)
+                .tasklet(tasklet, transactionManager)
+                .build();
+    }
+
+    protected Job buildSimpleJob(String jobName,
+                                 Step firstStep,
+                                 JobRepository jobRepository) {
+        return new JobBuilder(jobName, jobRepository)
+                .start(firstStep)
+                .build();
+    }
+}
