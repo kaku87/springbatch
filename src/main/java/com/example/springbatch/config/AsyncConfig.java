@@ -11,7 +11,7 @@ import java.util.concurrent.Executor;
  * 非同期実行設定クラス
  */
 @Configuration
-@EnableAsync
+@EnableAsync(proxyTargetClass = true)
 public class AsyncConfig {
 
     /**

@@ -1,12 +1,12 @@
 com/example/springbatch/config/BatchConfig.class
 com/example/springbatch/repository/BatchExecutionRepository.class
 com/example/springbatch/controller/JobController.class
-com/example/springbatch/repository/TaskRepository.class
 com/example/springbatch/service/JobStopManager.class
-com/example/springbatch/SpringBatchDemoApplication.class
 com/example/springbatch/model/Task.class
-com/example/springbatch/config/AsyncConfig.class
-com/example/springbatch/service/JobService.class
 com/example/springbatch/model/BatchExecution.class
 com/example/springbatch/command/JobCommandLineRunner.class
+com/example/springbatch/repository/TaskRepository.class
+com/example/springbatch/SpringBatchDemoApplication.class
+com/example/springbatch/config/AsyncConfig.class
+com/example/springbatch/service/JobService.class
 com/example/springbatch/tasklet/AsyncBusinessJobTasklet.class

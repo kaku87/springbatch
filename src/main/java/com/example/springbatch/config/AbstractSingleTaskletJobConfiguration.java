@@ -4,6 +4,7 @@ import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.aop.framework.AopProxyUtils;
 import org.springframework.batch.core.configuration.DuplicateJobException;
 import org.springframework.batch.core.configuration.JobRegistry;
 import org.springframework.batch.core.configuration.support.ReferenceJobFactory;
@@ -12,6 +13,7 @@ import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
 import org.springframework.batch.core.step.tasklet.Tasklet;
 import org.springframework.beans.factory.InitializingBean;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.support.GenericApplicationContext;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -52,7 +54,12 @@ public abstract class AbstractSingleTaskletJobConfiguration implements Initializ
     protected abstract Class<? extends Tasklet> taskletClass();
 
     protected Tasklet resolveTasklet() {
-        return applicationContext.getBean(taskletClass());
+        Class<? extends Tasklet> targetClass = taskletClass();
+        ObjectProvider<Tasklet> provider = applicationContext.getBeanProvider(Tasklet.class);
+        return provider.stream()
+                .filter(tasklet -> targetClass.isAssignableFrom(AopProxyUtils.ultimateTargetClass(tasklet)))
+                .findFirst()
+                .orElseThrow(() -> new IllegalStateException("指定されたTaskletが見つかりません: " + targetClass.getName()));
     }
 
     private void registerJobDefinition() {
