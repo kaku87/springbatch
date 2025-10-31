@@ -2,6 +2,11 @@ package com.example.springbatch.config;
 
 import org.springframework.batch.core.Job;
 import org.springframework.batch.core.Step;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.batch.core.configuration.DuplicateJobException;
+import org.springframework.batch.core.configuration.JobRegistry;
+import org.springframework.batch.core.configuration.support.ReferenceJobFactory;
 import org.springframework.batch.core.job.builder.JobBuilder;
 import org.springframework.batch.core.repository.JobRepository;
 import org.springframework.batch.core.step.builder.StepBuilder;
@@ -19,6 +24,8 @@ import org.springframework.transaction.PlatformTransactionManager;
  */
 public abstract class AbstractSingleTaskletJobConfiguration implements InitializingBean {
 
+    private static final Logger logger = LoggerFactory.getLogger(AbstractSingleTaskletJobConfiguration.class);
+
     @Autowired
     private GenericApplicationContext applicationContext;
 
@@ -27,6 +34,9 @@ public abstract class AbstractSingleTaskletJobConfiguration implements Initializ
 
     @Autowired
     private PlatformTransactionManager transactionManager;
+
+    @Autowired
+    private JobRegistry jobRegistry;
 
     @Override
     public void afterPropertiesSet() {
@@ -59,6 +69,17 @@ public abstract class AbstractSingleTaskletJobConfiguration implements Initializ
                     () -> buildSimpleJob(jobName,
                             applicationContext.getBean(stepName, Step.class),
                             jobRepository));
+        }
+
+        registerToJobRegistry(jobName);
+    }
+
+    private void registerToJobRegistry(String jobName) {
+        try {
+            Job job = applicationContext.getBean(jobName, Job.class);
+            jobRegistry.register(new ReferenceJobFactory(job));
+        } catch (DuplicateJobException e) {
+            logger.debug("Job [{}] is already registered. Skipping duplicate registration.", jobName);
         }
     }
 
